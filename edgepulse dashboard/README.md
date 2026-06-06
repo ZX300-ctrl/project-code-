@@ -22,19 +22,7 @@ Copy to ESP32:
 
 Run `main.py`.
 
-## Run dashboard
 
-**Easiest (Windows):** double-click  
-`C:\Users\vighn\edgepulse\start_server.bat`  
-Keep that window open.
-
-**Or in PowerShell:**
-
-```powershell
-cd C:\Users\vighn\edgepulse\bridge
-pip install -r requirements.txt
-python serial_bridge.py
-```
 
 Open **http://127.0.0.1:8080/**
 
