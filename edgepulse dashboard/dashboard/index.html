@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EdgePulse — IoT Signal Intelligence Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="header-brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div class="brand-name">Edge<span>Pulse</span></div>
+        <div class="brand-sub">Temp + Oximeter · ESP32 · MAX30102</div>
+      </div>
+    </div>
+    <div class="header-status">
+      <div class="status-item">
+        <div class="status-dot offline" id="conn-dot"></div>
+        <span id="conn-label">DISCONNECTED</span>
+      </div>
+      <div class="status-item">🕐 <span id="clock">--:--:--</span></div>
+      <div class="status-item">
+        <div class="waveform" id="sig-wave" style="opacity:0.2">
+          <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+        </div>
+      </div>
+      <p class="usb-hint" id="usb-hint">Plug ESP32 via USB, then start the bridge</p>
+      <button class="connect-btn" id="main-connect-btn" disabled onclick="toggleConnection()">⚡ Connect Device</button>
+    </div>
+  </header>
+
+  <div class="main-grid">
+    <div class="card sensor-panel">
+      <div class="card-title">📡 Sensor Control</div>
+
+      <div class="sensor-btn temp unavailable" id="btn-temp" onclick="toggleSensor('temp')">
+        <div class="sensor-header">
+          <div class="sensor-icon-wrap">🌡️</div>
+          <div class="sensor-toggle"></div>
+        </div>
+        <div class="sensor-name">Temperature</div>
+        <div class="sensor-desc">DHT22 · GPIO4</div>
+        <div class="sensor-value-row">
+          <div class="sensor-val" id="val-temp">--.-</div>
+          <div class="sensor-unit">°C</div>
+          <div class="sensor-status-badge badge-off" id="badge-temp">NO HW</div>
+        </div>
+      </div>
+
+      <div class="sensor-btn hr unavailable" id="btn-hr" onclick="toggleSensor('hr')">
+        <div class="sensor-header">
+          <div class="sensor-icon-wrap">❤️</div>
+          <div class="sensor-toggle"></div>
+        </div>
+        <div class="sensor-name">Heart Rate</div>
+        <div class="sensor-desc">MAX30102 Oximeter · I2C 21/22</div>
+        <div class="sensor-value-row">
+          <div class="sensor-val" id="val-hr">---</div>
+          <div class="sensor-unit">BPM</div>
+          <div class="sensor-status-badge badge-off" id="badge-hr">NO HW</div>
+        </div>
+        <div class="sensor-spo2-row">
+          <span class="spo2-label">SpO₂</span>
+          <span class="spo2-val" id="val-spo2">--</span>
+          <span class="sensor-unit">%</span>
+        </div>
+      </div>
+
+      <button class="view-code-btn" type="button" onclick="openModal()">⌨ Thonny — Edit &amp; Deploy MicroPython</button>
+    </div>
+
+    <div class="card workflow-panel">
+      <div class="card-title">🔄 Signal Processing Pipeline</div>
+      <div class="pipeline-steps">
+        <div class="pipe-step" id="step-acq"><div class="pipe-icon">📥</div><div class="pipe-name">Acquisition</div><div class="pipe-desc">ESP32 ADC/I2C</div><div class="pipe-progress-bar" id="prog-acq"></div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="step-noise"><div class="pipe-icon">🔇</div><div class="pipe-name">Noise Filter</div><div class="pipe-desc">LMS μ=0.01</div><div class="pipe-progress-bar" id="prog-noise"></div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="step-norm"><div class="pipe-icon">⚖️</div><div class="pipe-name">Normalize</div><div class="pipe-progress-bar" id="prog-norm"></div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="step-mem"><div class="pipe-icon">💾</div><div class="pipe-name">Memory Opt.</div><div class="pipe-progress-bar" id="prog-mem"></div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="step-feat"><div class="pipe-icon">🔬</div><div class="pipe-name">Features</div><div class="pipe-progress-bar" id="prog-feat"></div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="step-ai"><div class="pipe-icon">🧠</div><div class="pipe-name">TinyML</div><div class="pipe-progress-bar" id="prog-ai"></div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="step-out"><div class="pipe-icon">📤</div><div class="pipe-name">Output</div><div class="pipe-progress-bar" id="prog-out"></div></div>
+      </div>
+      <div style="margin-top:18px">
+        <div class="card-title" style="margin-bottom:12px">⚙️ Active Algorithms</div>
+        <div class="algo-list">
+          <div class="algo-item" id="algo-lms"><div class="algo-dot"></div><div class="algo-name">LMS Adaptive Filter</div><div class="algo-stat">IDLE</div></div>
+          <div class="algo-item" id="algo-fft"><div class="algo-dot"></div><div class="algo-name">FFT Frequency Analysis</div><div class="algo-stat">IDLE</div></div>
+          <div class="algo-item" id="algo-quant"><div class="algo-dot"></div><div class="algo-name">Quantization &amp; Pruning</div><div class="algo-stat">IDLE</div></div>
+          <div class="algo-item" id="algo-tinyml"><div class="algo-dot"></div><div class="algo-name">TinyML Inference</div><div class="algo-stat">IDLE</div></div>
+          <div class="algo-item" id="algo-rls"><div class="algo-dot"></div><div class="algo-name">RLS Adaptation</div><div class="algo-stat">IDLE</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="card">
+        <div class="card-title">🖥️ Device Info</div>
+        <div class="device-grid">
+          <div class="device-cell"><div class="device-cell-label">Board</div><div class="device-cell-val">ESP32</div></div>
+          <div class="device-cell"><div class="device-cell-label">Runtime</div><div class="device-cell-val">MicroPython</div></div>
+          <div class="device-cell"><div class="device-cell-label">IDE</div><div class="device-cell-val">Thonny / Dashboard</div></div>
+          <div class="device-cell"><div class="device-cell-label">Link</div><div class="device-cell-val">USB Serial</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 System Resources</div>
+        <div class="stat-row">
+          <div><div class="stat-header"><span class="stat-label">RAM Usage</span><span class="stat-value" id="ram-val">0%</span></div><div class="stat-bar"><div class="stat-fill cyan" id="ram-bar" style="width:0%"></div></div></div>
+          <div><div class="stat-header"><span class="stat-label">CPU Load</span><span class="stat-value" id="cpu-val">0%</span></div><div class="stat-bar"><div class="stat-fill green" id="cpu-bar" style="width:0%"></div></div></div>
+          <div><div class="stat-header"><span class="stat-label">Buffer</span><span class="stat-value" id="buf-val">0%</span></div><div class="stat-bar"><div class="stat-fill amber" id="buf-bar" style="width:0%"></div></div></div>
+          <div><div class="stat-header"><span class="stat-label">Signal Quality</span><span class="stat-value" id="sig-val">—</span></div><div class="stat-bar"><div class="stat-fill purple" id="sig-bar" style="width:0%"></div></div></div>
+        </div>
+      </div>
+      <div class="card log-panel">
+        <div class="card-title">📋 System Log</div>
+        <div class="log-feed" id="log-feed"></div>
+      </div>
+    </div>
+
+    <div class="card charts-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <div class="card-title" style="margin:0">📈 Live Signal Monitor</div>
+        <div class="charts-tabs">
+          <button class="chart-tab active" onclick="setChart('temp',this)">🌡 Temp</button>
+          <button class="chart-tab" onclick="setChart('hr',this)">❤️ Heart Rate</button>
+          <button class="chart-tab" onclick="setChart('spo2',this)">🫁 SpO₂</button>
+          <button class="chart-tab" onclick="setChart('fft',this)">〰 FFT</button>
+        </div>
+      </div>
+      <div class="chart-container"><canvas id="signal-chart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="tool-btn" type="button" onclick="clearLog()">🗑 Clear Log</button>
+      <button class="tool-btn" type="button" onclick="exportData()">⬇ Export CSV</button>
+      <button class="tool-btn" type="button" onclick="runCalibration()">🎯 Calibrate</button>
+      <button class="tool-btn" type="button" onclick="resetAll()">↺ Reset All</button>
+    </div>
+    <div class="uptime">⏱ Uptime: <span id="uptime">00:00:00</span></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toasts"></div>
+
+<div class="modal-overlay" id="code-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">⌨ MicroPython — Thonny-style deploy</div>
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-key="main" type="button">main.py</button>
+        <button class="modal-tab" data-key="sensor" type="button">sensor_lib.py</button>
+        <button class="modal-tab" data-key="signal" type="button">signal_proc.py</button>
+        <button class="modal-tab" data-key="tinyml" type="button">tinyml.py</button>
+      </div>
+      <button class="modal-close" type="button" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="code-editor" spellcheck="false"></textarea>
+      <div class="deploy-bar">
+        <span class="deploy-hint">Writes to ESP32 filesystem over USB — same as Thonny save + run</span>
+        <button class="deploy-btn" id="deploy-btn" type="button">▶ Deploy <span id="deploy-filename">main.py</span></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js?v=3"></script>
+</body>
+</html>
